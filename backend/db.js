@@ -1,4 +1,5 @@
-const { Schema, connect } = require("mongoose");
+const { Schema, connect, model } = require("mongoose");
+const bcrypt = require("bcrypt");
 connect(
   "mongodb+srv://sbbhutani12:2928811Ss@cluster0.on0du6g.mongodb.net/paytm"
 );
@@ -30,8 +31,11 @@ userSchema.methods.createHash = async function (plainTextPassword) {
 };
 
 // Validating the candidate password with stored hash and hash function
-userSchema.methods.validatePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password_hash);
+userSchema.methods.validatePassword = async function (
+  candidatePassword,
+  password_hash
+) {
+  return await bcrypt.compare(candidatePassword, password_hash);
 };
 
 const accountSchema = Schema({
@@ -42,8 +46,8 @@ const accountSchema = Schema({
   },
 });
 
-const User = userSchema.model("User", userSchema);
-const Account = mongoose.model("Account", accountSchema);
+const User = model("User", userSchema);
+const Account = model("Account", accountSchema);
 
 module.exports = {
   User,

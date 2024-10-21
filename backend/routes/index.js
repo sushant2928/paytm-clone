@@ -5,7 +5,7 @@ const accountRouter = require("./account");
 
 const router = express.Router();
 
-router.all("/user", userRouter);
-router.all("/account", accountRouter);
+router.use("/user", userRouter);
+router.use("/account", accountRouter);
 
 module.exports = router;

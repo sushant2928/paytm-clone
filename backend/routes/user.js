@@ -3,6 +3,7 @@ const zod = require("zod");
 const jwt = require("jsonwebtoken");
 const { User, Account } = require("../db");
 const { authMiddleware } = require("../middleware");
+const { JWT_SECRET } = require("../config");
 
 const router = express.Router();
 
@@ -18,13 +19,13 @@ const signinBody = zod.object({
   password: zod.string(),
 });
 
-const userUpdateBody = zod.union([
-  zod.pick({ password: zod.string().optional() }),
-  zod.pick({ firstName: zod.string().optional() }),
-  zod.pick({ lastName: zod.string().optional() }),
-]);
+const userUpdateBody = zod.object({
+  password: zod.string().optional(),
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
+});
 
-route.post("/signup", async (req, res) => {
+router.post("/signup", async (req, res) => {
   try {
     signUpBody.parse(req.body);
     // if (!success) {
@@ -47,7 +48,7 @@ route.post("/signup", async (req, res) => {
       firstName,
       lastName,
     });
-    const hashedPassword = newUser.createHash(password);
+    const hashedPassword = await newUser.createHash(password);
     newUser.password = hashedPassword;
     const user = await newUser.save();
     const userId = user._id;
@@ -73,7 +74,7 @@ route.post("/signup", async (req, res) => {
   }
 });
 
-route.get("/signin", async (req, res) => {
+router.get("/signin", async (req, res) => {
   try {
     signinBody.parse(req.body);
     // if (!success) {
@@ -88,14 +89,14 @@ route.get("/signin", async (req, res) => {
         message: "User Not Found!",
       });
     }
-    if (!(await user?.validatePassword(password))) {
+    if (!(await user?.validatePassword(password, user.password))) {
       return res.json(401).json({
         message: "Incorrect Password!",
       });
     }
     const userId = user._id;
     res.status(200).json({
-      token: jwt.sign({ userId }),
+      token: jwt.sign({ userId }, JWT_SECRET),
     });
   } catch (e) {
     res.status(400).json({
@@ -104,7 +105,7 @@ route.get("/signin", async (req, res) => {
   }
 });
 
-route.put("/user", authMiddleware, async (req, res) => {
+router.put("/user", authMiddleware, async (req, res) => {
   try {
     userUpdateBody.parse(req.body);
     const user = await User.findOneAndUpdate({ _id: req.userId }, req.body, {
@@ -114,6 +115,7 @@ route.put("/user", authMiddleware, async (req, res) => {
     res.status(200).json({
       message: "User successfully updated!",
       user,
+      clear,
     });
   } catch (e) {
     res.status(400).json({
@@ -122,7 +124,7 @@ route.put("/user", authMiddleware, async (req, res) => {
   }
 });
 
-route.get("/user/bulk", async (req, res) => {
+router.get("/user/bulk", async (req, res) => {
   try {
     const searchText = req?.params?.filter || "";
     const users = User.find({
