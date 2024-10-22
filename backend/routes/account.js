@@ -1,8 +1,15 @@
 const express = require("express");
 const { authMiddleware } = require("../middleware");
 const { Account } = require("../db");
+const zod = require("zod");
+const { startSession } = require("mongoose");
 
 const router = express.Router();
+
+const transferBalanceBody = zod.object({
+  to: zod.string(),
+  balance: zod.number(),
+});
 
 router.get("/balance", authMiddleware, async (req, res) => {
   try {
@@ -10,7 +17,6 @@ router.get("/balance", authMiddleware, async (req, res) => {
     const account = await Account.findOne({
       userId,
     });
-    console.log({ account });
     res.status(200).json({
       balance: account.balance,
     });
@@ -21,7 +27,7 @@ router.get("/balance", authMiddleware, async (req, res) => {
 
 router.post("/transfer", authMiddleware, async (req, res) => {
   try {
-    const session = await mongoose.startSession();
+    const session = await startSession();
     session.startTransaction();
     const { to, amount } = req.body;
     const account = await Account.findOne({ userId: req.userId }).session(

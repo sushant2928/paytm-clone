@@ -28,11 +28,6 @@ const userUpdateBody = zod.object({
 router.post("/signup", async (req, res) => {
   try {
     signUpBody.parse(req.body);
-    // if (!success) {
-    //   return res.status(411).json({
-    //     message: "Invalid Input",
-    //   });
-    // }
     const existingUser = await User.findOne({
       username: req.body.username,
     });
@@ -66,6 +61,9 @@ router.post("/signup", async (req, res) => {
     res.status(200).json({
       message: "User created successfully!",
       token,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
     });
   } catch (e) {
     res.status(400).json({
@@ -74,7 +72,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-router.get("/signin", async (req, res) => {
+router.post("/signin", async (req, res) => {
   try {
     signinBody.parse(req.body);
     // if (!success) {
@@ -96,7 +94,11 @@ router.get("/signin", async (req, res) => {
     }
     const userId = user._id;
     res.status(200).json({
+      message: "User logged in successfully!",
       token: jwt.sign({ userId }, JWT_SECRET),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
     });
   } catch (e) {
     res.status(400).json({
@@ -105,7 +107,7 @@ router.get("/signin", async (req, res) => {
   }
 });
 
-router.put("/user", authMiddleware, async (req, res) => {
+router.put("/", authMiddleware, async (req, res) => {
   try {
     userUpdateBody.parse(req.body);
     const user = await User.findOneAndUpdate({ _id: req.userId }, req.body, {
@@ -124,13 +126,14 @@ router.put("/user", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/user/bulk", async (req, res) => {
+router.get("/bulk", authMiddleware, async (req, res) => {
   try {
-    const searchText = req?.params?.filter || "";
-    const users = User.find({
+    const searchText = req?.query?.filter || "";
+
+    const users = await User.find({
       $or: [
-        { firstName: { $regex: searchText } },
-        { lastName: { $regex: searchText } },
+        { firstName: { $regex: searchText, $options: "i" } },
+        { lastName: { $regex: searchText, $options: "i" } },
       ],
     });
     if (!Array.isArray(users) || !users?.length) {
@@ -138,13 +141,14 @@ router.get("/user/bulk", async (req, res) => {
         message: e?.message || "Something went wrong!",
       });
     }
-    res.json(200).json({
-      result: users.map((user) => ({
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        _id: user._id,
-      })),
+    res.status(200).json({
+      users:
+        users?.map((user) => ({
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          _id: user._id,
+        })) || [],
     });
   } catch (e) {
     res.status(400).json({
